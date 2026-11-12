@@ -1,8 +1,17 @@
-import { memoryStore } from '../data/memoryStore.js';
+import {
+  createProperty as insertProperty,
+  deleteProperty as removeProperty,
+  getCategories as selectCategories,
+  getDestinations as selectDestinations,
+  getProperties,
+  getPropertiesByHost,
+  getPropertyById as selectPropertyById
+} from '../../db/index.js';
 import { AppError } from '../utils/appError.js';
+import { unwrapDbResult } from '../utils/unwrapDbResult.js';
 
 export const getListings = async (query = {}) => {
-  let listings = memoryStore.getAllListings();
+  let listings = unwrapDbResult(await getProperties(), 'loading properties');
 
   const {
     destination,
@@ -103,7 +112,7 @@ export const getListings = async (query = {}) => {
 };
 
 export const getListingById = async (id) => {
-  const listing = memoryStore.findListingById(id);
+  const listing = unwrapDbResult(await selectPropertyById(id), 'loading property');
   if (!listing) {
     throw new AppError(`Property with id '${id}' not found.`, 404);
   }
@@ -114,9 +123,9 @@ export const createListing = async (data, user) => {
   const newListing = {
     ...data,
     id: `sf-user-${Date.now()}`,
-    hostUserId: user ? user.id : 'usr-student-01',
-    hostName: data.hostName || (user ? user.name : 'StayFinder Host'),
-    hostImage: data.hostImage || (user ? user.avatar : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80'),
+    hostUserId: user.id,
+    hostName: data.hostName || user.name,
+    hostImage: data.hostImage || user.avatar,
     hostDuration: data.hostDuration || 'Joined 2026',
     hostResponseRate: data.hostResponseRate || '100%',
     price: Number(data.price),
@@ -125,8 +134,8 @@ export const createListing = async (data, user) => {
     beds: Number(data.beds || 1),
     bathrooms: Number(data.bathrooms || 1),
     cleaningFee: Number(data.cleaningFee || 50),
-    rating: 5.0,
-    reviews: 1,
+    rating: 0,
+    reviews: 0,
     isSuperhost: false,
     images: data.images && data.images.length > 0 ? data.images : [
       data.imageUrl || 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1200&auto=format&fit=crop&q=80'
@@ -140,15 +149,15 @@ export const createListing = async (data, user) => {
     createdAt: new Date().toISOString()
   };
 
-  return memoryStore.createListing(newListing);
+  return unwrapDbResult(await insertProperty(newListing), 'creating property');
 };
 
 export const getUserListings = async (userId) => {
-  return memoryStore.getListingsByHost(userId);
+  return unwrapDbResult(await getPropertiesByHost(userId), 'loading host properties');
 };
 
 export const deleteUserListing = async (listingId, userId, userRole) => {
-  const listing = memoryStore.findListingById(listingId);
+  const listing = unwrapDbResult(await selectPropertyById(listingId), 'loading property');
   if (!listing) {
     throw new AppError(`Listing with id '${listingId}' not found.`, 404);
   }
@@ -161,16 +170,16 @@ export const deleteUserListing = async (listingId, userId, userRole) => {
     throw new AppError('You do not have permission to delete this listing.', 403);
   }
 
-  memoryStore.deleteListing(listingId);
+  unwrapDbResult(await removeProperty(listingId), 'deleting property');
   return { success: true, id: listingId };
 };
 
 export const getCategories = async () => {
-  return memoryStore.getCategories();
+  return unwrapDbResult(await selectCategories(), 'loading categories');
 };
 
 export const getDestinations = async () => {
-  return memoryStore.getDestinations();
+  return unwrapDbResult(await selectDestinations(), 'loading destinations');
 };
 
 export default {

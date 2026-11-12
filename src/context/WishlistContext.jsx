@@ -1,53 +1,74 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { apiClient } from '../services/api';
+import { useAuth } from './AuthContext';
 
 const WishlistContext = createContext();
 
-const WISHLIST_STORAGE_KEY = 'stayfinder_wishlist_v1';
-
 export const WishlistProvider = ({ children }) => {
-  const [wishlist, setWishlist] = useState(() => {
-    try {
-      const saved = localStorage.getItem(WISHLIST_STORAGE_KEY);
-      // Seed with 2 popular initial favorites if empty
-      return saved ? JSON.parse(saved) : ['sf-101', 'sf-102'];
-    } catch (e) {
-      console.error('Failed to parse wishlist from localStorage', e);
-      return ['sf-101', 'sf-102'];
+  const { user, authLoading } = useAuth();
+  const [wishlist, setWishlist] = useState([]);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [wishlistError, setWishlistError] = useState('');
+
+  const loadWishlist = useCallback(async () => {
+    if (!user) {
+      setWishlist([]);
+      setWishlistError('');
+      return;
     }
-  });
+
+    setWishlistLoading(true);
+    setWishlistError('');
+    try {
+      const result = await apiClient.get('/wishlist');
+      setWishlist(result.data.map((item) => item.propertyId));
+    } catch (error) {
+      setWishlistError(error.message || 'Unable to load wishlist.');
+    } finally {
+      setWishlistLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(wishlist));
-    } catch (e) {
-      console.error('Failed to save wishlist', e);
+    if (!authLoading) loadWishlist();
+  }, [authLoading, loadWishlist]);
+
+  const toggleWishlist = useCallback(async (propertyId) => {
+    if (!user) throw new Error('Please sign in to save properties to your wishlist.');
+
+    if (wishlist.includes(propertyId)) {
+      await apiClient.delete(`/wishlist/${encodeURIComponent(propertyId)}`);
+      setWishlist((previous) => previous.filter((id) => id !== propertyId));
+    } else {
+      await apiClient.put(`/wishlist/${encodeURIComponent(propertyId)}`, {});
+      setWishlist((previous) => previous.includes(propertyId)
+        ? previous
+        : [...previous, propertyId]);
     }
-  }, [wishlist]);
+  }, [user, wishlist]);
 
-  const toggleWishlist = useCallback((propertyId) => {
-    setWishlist(prev => {
-      if (prev.includes(propertyId)) {
-        return prev.filter(id => id !== propertyId);
-      } else {
-        return [...prev, propertyId];
-      }
-    });
-  }, []);
+  const isInWishlist = useCallback(
+    (propertyId) => wishlist.includes(propertyId),
+    [wishlist]
+  );
 
-  const isInWishlist = useCallback((propertyId) => {
-    return wishlist.includes(propertyId);
-  }, [wishlist]);
-
-  const clearWishlist = useCallback(() => {
-    setWishlist([]);
-  }, []);
+  const clearWishlist = useCallback(async () => {
+    if (!user) throw new Error('Please sign in to manage your wishlist.');
+    for (const propertyId of wishlist) {
+      await apiClient.delete(`/wishlist/${encodeURIComponent(propertyId)}`);
+      setWishlist((previous) => previous.filter((id) => id !== propertyId));
+    }
+  }, [user, wishlist]);
 
   const value = {
     wishlist,
     wishlistCount: wishlist.length,
+    wishlistLoading,
+    wishlistError,
     toggleWishlist,
     isInWishlist,
-    clearWishlist
+    clearWishlist,
+    refreshWishlist: loadWishlist
   };
 
   return <WishlistContext.Provider value={value}>{children}</WishlistContext.Provider>;
@@ -62,4 +83,3 @@ export const useWishlist = () => {
 };
 
 export default WishlistContext;
-

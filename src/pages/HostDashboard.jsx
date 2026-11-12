@@ -18,14 +18,16 @@ import { formatCurrency } from '../utils/priceCalculator';
 export const HostDashboard = () => {
   const [userListings, setUserListings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const loadListings = async () => {
     setLoading(true);
+    setError('');
     try {
       const res = await fetchUserListings();
       setUserListings(res.data || []);
-    } catch (e) {
-      console.error(e);
+    } catch (requestError) {
+      setError(requestError.message || 'Unable to load your listings.');
     } finally {
       setLoading(false);
     }
@@ -37,12 +39,19 @@ export const HostDashboard = () => {
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this listing?')) {
-      await deleteUserListing(id);
-      loadListings();
+      try {
+        await deleteUserListing(id);
+        await loadListings();
+      } catch (requestError) {
+        setError(requestError.message || 'Unable to delete this listing.');
+      }
     }
   };
 
   const totalEarningsEstimate = userListings.reduce((sum, item) => sum + (item.price * 14), 0);
+  const averageRating = userListings.length
+    ? userListings.reduce((sum, item) => sum + (item.rating || 0), 0) / userListings.length
+    : 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
@@ -66,6 +75,12 @@ export const HostDashboard = () => {
           <span>Create New Listing</span>
         </Link>
       </div>
+
+      {error && (
+        <p role="alert" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+          {error}
+        </p>
+      )}
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
@@ -91,7 +106,9 @@ export const HostDashboard = () => {
           <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
             <Star size={20} className="fill-current" />
           </div>
-          <div className="text-2xl font-black text-gray-900">5.0 ★</div>
+          <div className="text-2xl font-black text-gray-900">
+            {averageRating ? `${averageRating.toFixed(1)} ★` : '—'}
+          </div>
           <div className="text-xs font-bold text-gray-500 mt-0.5">Host Quality Rating</div>
           <p className="text-[11px] text-gray-400 mt-1">Superhost track enabled</p>
         </div>
@@ -178,4 +195,3 @@ export const HostDashboard = () => {
 };
 
 export default HostDashboard;
-

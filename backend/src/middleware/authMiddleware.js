@@ -1,8 +1,24 @@
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env.js';
 import { AppError } from '../utils/appError.js';
-import { memoryStore } from '../data/memoryStore.js';
+import { getUserById } from '../../db/index.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { unwrapDbResult } from '../utils/unwrapDbResult.js';
+
+const getAuthenticatedUser = async (token) => {
+  let decoded;
+  try {
+    decoded = jwt.verify(token, config.JWT_SECRET);
+  } catch {
+    throw new AppError('Invalid or expired authentication token.', 401);
+  }
+
+  const user = unwrapDbResult(await getUserById(decoded.id), 'checking authenticated user');
+  if (!user) {
+    throw new AppError('The user belonging to this token no longer exists.', 401);
+  }
+  return user;
+};
 
 export const protect = asyncHandler(async (req, res, next) => {
   let token;
@@ -15,44 +31,7 @@ export const protect = asyncHandler(async (req, res, next) => {
     return next(new AppError('You are not logged in. Please log in to get access.', 401));
   }
 
-  try {
-    const decoded = jwt.verify(token, config.JWT_SECRET);
-    const user = memoryStore.findUserById(decoded.id);
-
-    if (!user) {
-      return next(new AppError('The user belonging to this token no longer exists.', 401));
-    }
-
-    // Attach user (excluding password) to request
-    const { password, ...safeUser } = user;
-    req.user = safeUser;
-    next();
-  } catch (err) {
-    return next(new AppError('Invalid or expired authentication token.', 401));
-  }
-});
-
-export const optionalAuth = asyncHandler(async (req, res, next) => {
-  let token;
-
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-    token = req.headers.authorization.split(' ')[1];
-  }
-
-  if (!token) {
-    return next();
-  }
-
-  try {
-    const decoded = jwt.verify(token, config.JWT_SECRET);
-    const user = memoryStore.findUserById(decoded.id);
-    if (user) {
-      const { password, ...safeUser } = user;
-      req.user = safeUser;
-    }
-  } catch (err) {
-    // Ignore invalid token in optionalAuth
-  }
+  req.user = await getAuthenticatedUser(token);
   next();
 });
 
@@ -84,4 +63,4 @@ export const authorize = (...roles) => {
   };
 };
 
-export default { protect, optionalAuth, authorize };
+export default { protect, authorize };

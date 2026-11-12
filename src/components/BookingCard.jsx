@@ -19,6 +19,7 @@ export const BookingCard = ({ property }) => {
   const [isConfirmedModalOpen, setIsConfirmedModalOpen] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!property) return null;
 
@@ -33,9 +34,14 @@ export const BookingCard = ({ property }) => {
     }
   };
 
-  const handleReserve = (e) => {
+  const handleReserve = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+
+    if (!user) {
+      navigate('/login', { state: { from: window.location.pathname } });
+      return;
+    }
 
     if (new Date(checkOut) <= new Date(checkIn)) {
       setErrorMsg('Checkout date must be after check-in date.');
@@ -47,29 +53,28 @@ export const BookingCard = ({ property }) => {
       return;
     }
 
-    const booking = createBooking({
-      propertyId: property.id,
-      propertyTitle: property.title,
-      propertyLocation: property.location,
-      propertyImage: property.images?.[0] || '',
-      propertyType: property.propertyType,
-      checkIn,
-      checkOut,
-      nights,
-      guests,
-      pricePerNight: property.price,
-      subtotal: pricing.subtotal,
-      cleaningFee: pricing.cleaningFee,
-      serviceFee: pricing.serviceFee,
-      occupancyTaxes: pricing.occupancyTaxes,
-      total: pricing.total,
-      guestName: user?.name || 'Guest Traveler',
-      guestEmail: user?.email || 'traveler@stayfinder.edu',
-      hostName: property.hostName || 'Host'
-    });
+    setIsSubmitting(true);
+    try {
+      const booking = await createBooking({
+        propertyId: property.id,
+        checkIn,
+        checkOut,
+        nights,
+        guests,
+        subtotal: pricing.subtotal,
+        cleaningFee: pricing.cleaningFee,
+        serviceFee: pricing.serviceFee,
+        occupancyTaxes: pricing.occupancyTaxes,
+        total: pricing.total
+      });
 
-    setConfirmedBooking(booking);
-    setIsConfirmedModalOpen(true);
+      setConfirmedBooking(booking);
+      setIsConfirmedModalOpen(true);
+    } catch (error) {
+      setErrorMsg(error.message || 'Unable to create the reservation.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -181,13 +186,14 @@ export const BookingCard = ({ property }) => {
         {/* Reserve Button */}
         <button
           onClick={handleReserve}
+          disabled={isSubmitting}
           className="w-full bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-extrabold py-3.5 px-4 rounded-xl shadow-md transition-all active:scale-98 text-sm uppercase tracking-wider mb-3"
         >
-          Reserve Stay
+          {isSubmitting ? 'Reserving…' : 'Reserve Stay'}
         </button>
 
         <p className="text-[11px] text-center text-gray-400 mb-5">
-          You won't be charged yet • Demo student booking
+          {user ? "You won't be charged yet" : 'Sign in to reserve this stay'}
         </p>
 
         {/* Dynamic Pricing Breakdown */}
@@ -290,4 +296,3 @@ export const BookingCard = ({ property }) => {
 };
 
 export default BookingCard;
-

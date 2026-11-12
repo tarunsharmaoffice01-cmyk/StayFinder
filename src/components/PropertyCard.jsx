@@ -1,21 +1,35 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Star, Heart, Award } from 'lucide-react';
 import { useWishlist } from '../context/WishlistContext';
+import { useAuth } from '../context/AuthContext';
 import { formatCurrency } from '../utils/priceCalculator';
 
 export const PropertyCard = ({ property }) => {
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [imageIndex, setImageIndex] = useState(0);
+  const [wishlistError, setWishlistError] = useState('');
 
   if (!property) return null;
 
   const isFavorited = isInWishlist(property.id);
 
-  const handleHeartClick = (e) => {
+  const handleHeartClick = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    toggleWishlist(property.id);
+    setWishlistError('');
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      await toggleWishlist(property.id);
+    } catch (error) {
+      setWishlistError(error.message || 'Unable to update wishlist.');
+    }
   };
 
   return (
@@ -47,7 +61,9 @@ export const PropertyCard = ({ property }) => {
         {/* Favorite Heart Button */}
         <button
           onClick={handleHeartClick}
+          aria-describedby={wishlistError ? `wishlist-error-${property.id}` : undefined}
           aria-label={isFavorited ? 'Remove from wishlist' : 'Save to wishlist'}
+          type="button"
           className="absolute top-3 right-3 p-2 rounded-full transition-transform active:scale-80 hover:scale-110 focus:outline-none group/btn"
         >
           <Heart
@@ -59,6 +75,15 @@ export const PropertyCard = ({ property }) => {
             }`}
           />
         </button>
+        {wishlistError && (
+          <span
+            id={`wishlist-error-${property.id}`}
+            role="alert"
+            className="absolute top-14 right-3 max-w-48 rounded-lg bg-white px-2 py-1 text-[10px] text-rose-700 shadow"
+          >
+            {wishlistError}
+          </span>
+        )}
       </div>
 
       {/* Property Meta */}
@@ -97,4 +122,3 @@ export const PropertyCard = ({ property }) => {
 };
 
 export default PropertyCard;
-

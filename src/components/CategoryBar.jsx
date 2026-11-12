@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Sparkles,
   Palmtree,
@@ -15,7 +15,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { PROPERTY_CATEGORIES } from '../data/mockListings';
+import { fetchCategories } from '../services/listingService';
 
 const ICON_MAP = {
   Sparkles,
@@ -34,6 +34,23 @@ const ICON_MAP = {
 
 export const CategoryBar = ({ selectedCategory = 'all', onSelectCategory }) => {
   const scrollRef = useRef(null);
+  const [categories, setCategories] = useState([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    fetchCategories()
+      .then((result) => {
+        if (active) setCategories(result.data || []);
+      })
+      .catch((requestError) => {
+        if (active) setError(requestError.message || 'Unable to load categories.');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleScroll = (direction) => {
     if (scrollRef.current) {
@@ -45,6 +62,10 @@ export const CategoryBar = ({ selectedCategory = 'all', onSelectCategory }) => {
   return (
     <div className="relative border-b border-gray-100 bg-white sticky top-20 z-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative flex items-center">
+        {error ? (
+          <p role="alert" className="w-full py-4 text-center text-xs text-rose-700">{error}</p>
+        ) : (
+          <>
         {/* Left Scroll Arrow */}
         <button
           onClick={() => handleScroll('left')}
@@ -59,7 +80,7 @@ export const CategoryBar = ({ selectedCategory = 'all', onSelectCategory }) => {
           ref={scrollRef}
           className="flex items-center gap-7 overflow-x-auto no-scrollbar py-4 scroll-smooth w-full"
         >
-          {PROPERTY_CATEGORIES.map((cat) => {
+          {categories.map((cat) => {
             const Icon = ICON_MAP[cat.icon] || Sparkles;
             const isSelected = selectedCategory === cat.id;
 
@@ -93,10 +114,11 @@ export const CategoryBar = ({ selectedCategory = 'all', onSelectCategory }) => {
         >
           <ChevronRight size={16} />
         </button>
+          </>
+        )}
       </div>
     </div>
   );
 };
 
 export default CategoryBar;
-

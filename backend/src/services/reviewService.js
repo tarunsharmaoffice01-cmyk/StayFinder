@@ -1,13 +1,26 @@
-import { memoryStore } from '../data/memoryStore.js';
+import {
+  createReview as insertReview,
+  getProperties,
+  getPropertyById,
+  getReviewsByProperty,
+  updateProperty
+} from '../../db/index.js';
 import { AppError } from '../utils/appError.js';
+import { unwrapDbResult } from '../utils/unwrapDbResult.js';
 
 export const getPropertyReviews = async (propertyId) => {
-  const property = memoryStore.findListingById(propertyId);
+  const property = unwrapDbResult(
+    await getPropertyById(propertyId),
+    'loading property for reviews'
+  );
   if (!property) {
     throw new AppError(`Property with id '${propertyId}' not found.`, 404);
   }
 
-  const reviews = memoryStore.getReviewsByProperty(propertyId);
+  const reviews = unwrapDbResult(
+    await getReviewsByProperty(propertyId),
+    'loading property reviews'
+  );
 
   // Return standard metrics layout matching ReviewSection.jsx
   const baseRating = property.rating || 4.95;
@@ -30,7 +43,10 @@ export const getPropertyReviews = async (propertyId) => {
 };
 
 export const addReview = async (propertyId, data, user) => {
-  const property = memoryStore.findListingById(propertyId);
+  const property = unwrapDbResult(
+    await getPropertyById(propertyId),
+    'loading property for review'
+  );
   if (!property) {
     throw new AppError(`Property with id '${propertyId}' not found.`, 404);
   }
@@ -38,30 +54,33 @@ export const addReview = async (propertyId, data, user) => {
   const newReview = {
     id: `rev-${Date.now()}`,
     propertyId,
-    userId: user ? user.id : 'usr-traveler-01',
-    author: user ? user.name : (data.author || 'StayFinder Guest'),
-    avatar: user ? user.avatar : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
+    userId: user.id,
+    author: user.name,
+    avatar: user.avatar,
     date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
     rating: Number(data.rating),
     text: data.text.trim(),
     createdAt: new Date().toISOString()
   };
 
-  memoryStore.addReview(newReview);
+  const savedReview = unwrapDbResult(await insertReview(newReview), 'creating review');
 
   // Recalculate average rating for property
-  const allReviews = memoryStore.getReviewsByProperty(propertyId);
+  const allReviews = unwrapDbResult(
+    await getReviewsByProperty(propertyId),
+    'reloading property reviews'
+  );
   const totalScore = allReviews.reduce((sum, r) => sum + r.rating, 0);
   const newRating = Number((totalScore / allReviews.length).toFixed(2));
   const newCount = allReviews.length;
 
-  memoryStore.updateListing(propertyId, {
-    rating: newRating,
-    reviews: newCount
-  });
+  unwrapDbResult(
+    await updateProperty(propertyId, { rating: newRating, reviews: newCount }),
+    'updating property rating'
+  );
 
   return {
-    review: newReview,
+    review: savedReview,
     updatedProperty: {
       id: propertyId,
       rating: newRating,

@@ -1,10 +1,24 @@
-import { memoryStore } from '../data/memoryStore.js';
+import {
+  deleteProperty,
+  getBookingById,
+  getBookings,
+  getProperties,
+  getPropertyById,
+  getUsers,
+  updateBooking
+} from '../../db/index.js';
 import { AppError } from '../utils/appError.js';
+import { unwrapDbResult } from '../utils/unwrapDbResult.js';
 
 export const getPlatformStats = async () => {
-  const listings = memoryStore.getAllListings();
-  const bookings = memoryStore.getAllBookings();
-  const users = memoryStore.getAllUsers();
+  const [listingsResult, bookingsResult, usersResult] = await Promise.all([
+    getProperties(),
+    getBookings(),
+    getUsers()
+  ]);
+  const listings = unwrapDbResult(listingsResult, 'loading properties for admin stats');
+  const bookings = unwrapDbResult(bookingsResult, 'loading bookings for admin stats');
+  const users = unwrapDbResult(usersResult, 'loading users for admin stats');
 
   const totalRevenue = bookings
     .filter(b => b.status !== 'Cancelled')
@@ -34,20 +48,20 @@ export const getPlatformStats = async () => {
 };
 
 export const getAllListings = async () => {
-  return memoryStore.getAllListings();
+  return unwrapDbResult(await getProperties(), 'loading admin properties');
 };
 
 export const deleteListingByAdmin = async (id) => {
-  const listing = memoryStore.findListingById(id);
+  const listing = unwrapDbResult(await getPropertyById(id), 'loading property');
   if (!listing) {
     throw new AppError(`Listing with id '${id}' not found.`, 404);
   }
-  memoryStore.deleteListing(id);
+  unwrapDbResult(await deleteProperty(id), 'deleting property');
   return { success: true, id, message: 'Listing permanently removed by admin.' };
 };
 
 export const getAllBookings = async () => {
-  return memoryStore.getAllBookings();
+  return unwrapDbResult(await getBookings(), 'loading admin bookings');
 };
 
 export const updateBookingStatus = async (id, status) => {
@@ -56,12 +70,15 @@ export const updateBookingStatus = async (id, status) => {
     throw new AppError(`Invalid status. Allowed values: ${validStatuses.join(', ')}`, 400);
   }
 
-  const booking = memoryStore.findBookingById(id);
+  const booking = unwrapDbResult(await getBookingById(id), 'loading booking');
   if (!booking) {
     throw new AppError(`Booking with id '${id}' not found.`, 404);
   }
 
-  const updated = memoryStore.updateBooking(id, { status, updatedAt: new Date().toISOString() });
+  const updated = unwrapDbResult(
+    await updateBooking(id, { status, updatedAt: new Date().toISOString() }),
+    'updating booking status'
+  );
   return updated;
 };
 

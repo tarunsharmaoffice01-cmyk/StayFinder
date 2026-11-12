@@ -1,5 +1,12 @@
-import { memoryStore } from '../data/memoryStore.js';
+import {
+  createBooking as insertBooking,
+  getBookingById as selectBookingById,
+  getBookingsByUser,
+  getPropertyById,
+  updateBooking
+} from '../../db/index.js';
 import { AppError } from '../utils/appError.js';
+import { unwrapDbResult } from '../utils/unwrapDbResult.js';
 
 export const calculateNights = (checkIn, checkOut) => {
   const start = new Date(checkIn);
@@ -10,7 +17,10 @@ export const calculateNights = (checkIn, checkOut) => {
 };
 
 export const createBooking = async (data, user) => {
-  const property = memoryStore.findListingById(data.propertyId);
+  const property = unwrapDbResult(
+    await getPropertyById(data.propertyId),
+    'loading property for booking'
+  );
   if (!property) {
     throw new AppError(`Property with id '${data.propertyId}' not found.`, 404);
   }
@@ -20,20 +30,20 @@ export const createBooking = async (data, user) => {
     throw new AppError(`Maximum guest capacity for this property is ${property.guests}.`, 400);
   }
 
-  const nights = data.nights || calculateNights(data.checkIn, data.checkOut);
+  const nights = calculateNights(data.checkIn, data.checkOut);
   const pricePerNight = property.price;
-  const subtotal = data.subtotal !== undefined ? Number(data.subtotal) : pricePerNight * nights;
-  const cleaningFee = data.cleaningFee !== undefined ? Number(data.cleaningFee) : (property.cleaningFee || 60);
-  const serviceFee = data.serviceFee !== undefined ? Number(data.serviceFee) : Math.round(subtotal * 0.12);
-  const occupancyTaxes = data.occupancyTaxes !== undefined ? Number(data.occupancyTaxes) : Math.round(subtotal * 0.08);
-  const total = data.total !== undefined ? Number(data.total) : (subtotal + cleaningFee + serviceFee + occupancyTaxes);
+  const subtotal = pricePerNight * nights;
+  const cleaningFee = property.cleaningFee || 60;
+  const serviceFee = Math.round(subtotal * 0.12);
+  const occupancyTaxes = Math.round(subtotal * 0.08);
+  const total = subtotal + cleaningFee + serviceFee + occupancyTaxes;
 
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
   const newBooking = {
     id: `SF-2026-${randomSuffix}`,
     createdAt: new Date().toISOString(),
     status: 'Confirmed',
-    userId: user ? user.id : 'usr-student-01',
+    userId: user.id,
     propertyId: property.id,
     propertyTitle: property.title,
     propertyLocation: property.location,
@@ -49,20 +59,26 @@ export const createBooking = async (data, user) => {
     serviceFee,
     occupancyTaxes,
     total,
-    guestName: data.guestName || (user ? user.name : 'Guest Traveler'),
-    guestEmail: data.guestEmail || (user ? user.email : 'traveler@stayfinder.edu'),
+    guestName: data.guestName || user.name,
+    guestEmail: data.guestEmail || user.email,
     hostName: property.hostName || 'StayFinder Host'
   };
 
-  return memoryStore.createBooking(newBooking);
+  return unwrapDbResult(await insertBooking(newBooking), 'creating booking');
 };
 
 export const getUserBookings = async (userId, userEmail) => {
-  return memoryStore.getBookingsByUser(userId, userEmail);
+  return unwrapDbResult(
+    await getBookingsByUser(userId, userEmail),
+    'loading user bookings'
+  );
 };
 
 export const getBookingById = async (bookingId, userId, userRole) => {
-  const booking = memoryStore.findBookingById(bookingId);
+  const booking = unwrapDbResult(
+    await selectBookingById(bookingId),
+    'loading booking'
+  );
   if (!booking) {
     throw new AppError(`Booking with id '${bookingId}' not found.`, 404);
   }
@@ -76,7 +92,10 @@ export const getBookingById = async (bookingId, userId, userRole) => {
 };
 
 export const cancelBooking = async (bookingId, userId, userRole) => {
-  const booking = memoryStore.findBookingById(bookingId);
+  const booking = unwrapDbResult(
+    await selectBookingById(bookingId),
+    'loading booking'
+  );
   if (!booking) {
     throw new AppError(`Booking with id '${bookingId}' not found.`, 404);
   }
@@ -86,10 +105,10 @@ export const cancelBooking = async (bookingId, userId, userRole) => {
     throw new AppError('You do not have permission to cancel this booking.', 403);
   }
 
-  const updated = memoryStore.updateBooking(bookingId, {
+  const updated = unwrapDbResult(await updateBooking(bookingId, {
     status: 'Cancelled',
     cancelledAt: new Date().toISOString()
-  });
+  }), 'cancelling booking');
 
   return updated;
 };

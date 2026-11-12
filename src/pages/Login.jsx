@@ -1,38 +1,51 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Mail, Lock, Sparkles, ShieldAlert, ArrowRight } from 'lucide-react';
+import { Mail, Lock, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, authError } = useAuth();
 
   const [email, setEmail] = useState('alex.rivera@stayfinder.edu');
   const [password, setPassword] = useState('demo1234');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const redirectPath = location.state?.from || '/';
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleLogin = async (credentials) => {
     setError('');
+    setIsSubmitting(true);
+    try {
+      await login(credentials);
+      navigate(redirectPath, { replace: true });
+    } catch (err) {
+      setError(err.message || 'Unable to sign in.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
     if (!email || !password) {
       setError('Please fill in both email and password.');
       return;
     }
 
-    login({ email, name: email.split('@')[0] });
-    navigate(redirectPath, { replace: true });
+    await handleLogin({ email, password });
   };
 
-  const handleQuickDemoLogin = () => {
-    login({
-      name: 'Alex Rivera',
-      email: 'alex.rivera@stayfinder.edu'
+  const handleQuickDemoLogin = async () => {
+    setEmail('alex.rivera@stayfinder.edu');
+    setPassword('demo1234');
+    await handleLogin({
+      email: 'alex.rivera@stayfinder.edu',
+      password: 'demo1234'
     });
-    navigate(redirectPath, { replace: true });
   };
 
   return (
@@ -51,22 +64,15 @@ export const Login = () => {
           </p>
         </div>
 
-        {/* Demo Notice Banner */}
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 mb-6 flex items-start gap-2.5 text-xs text-amber-800">
-          <ShieldAlert size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
-          <p>
-            <strong>College Capstone Demo:</strong> Authentication is simulated via browser <code>localStorage</code>. No real credentials required.
-          </p>
-        </div>
-
-        {/* 1-Click Fast Login Button */}
+        {/* Demo account shortcut */}
         <button
           type="button"
           onClick={handleQuickDemoLogin}
+          disabled={isSubmitting}
           className="w-full bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition transform active:scale-98 flex items-center justify-center gap-2 text-xs uppercase tracking-wider mb-5"
         >
           <Sparkles size={16} />
-          <span>1-Click Demo Login</span>
+          <span>{isSubmitting ? 'Signing in…' : 'Sign in as demo host'}</span>
         </button>
 
         <div className="relative my-5">
@@ -80,9 +86,9 @@ export const Login = () => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
+          {(error || authError) && (
             <div className="text-xs text-rose-600 font-medium bg-rose-50 p-2.5 rounded-xl border border-rose-100">
-              {error}
+              {error || authError}
             </div>
           )}
 
@@ -118,9 +124,10 @@ export const Login = () => {
 
           <button
             type="submit"
+            disabled={isSubmitting}
             className="w-full bg-gray-900 hover:bg-black text-white font-bold py-3.5 rounded-xl shadow-sm transition text-xs uppercase tracking-wider"
           >
-            Sign In
+            {isSubmitting ? 'Signing In…' : 'Sign In'}
           </button>
         </form>
 
@@ -136,4 +143,3 @@ export const Login = () => {
 };
 
 export default Login;
-

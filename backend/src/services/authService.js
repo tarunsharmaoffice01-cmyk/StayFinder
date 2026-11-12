@@ -1,8 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env.js';
-import { memoryStore } from '../data/memoryStore.js';
+import { createUser, getUserByEmail, getUserById, updateUser } from '../../db/index.js';
 import { AppError } from '../utils/appError.js';
+import { unwrapDbResult } from '../utils/unwrapDbResult.js';
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -13,18 +15,21 @@ const generateToken = (user) => {
 };
 
 export const registerUser = async ({ name, email, password, role = 'traveler', phone, location, avatar }) => {
-  const existingUser = memoryStore.findUserByEmail(email);
+  const normalizedEmail = email.trim().toLowerCase();
+  const existingUser = unwrapDbResult(
+    await getUserByEmail(normalizedEmail),
+    'checking whether the email is already registered'
+  );
   if (existingUser) {
     throw new AppError('An account with this email address already exists.', 409);
   }
 
-  const salt = bcrypt.genSaltSync(10);
-  const hashedPassword = bcrypt.hashSync(password, salt);
+  const hashedPassword = await bcrypt.hash(password, 10);
 
   const newUser = {
-    id: `usr-${Date.now()}`,
+    id: `usr-${randomUUID()}`,
     name: name.trim(),
-    email: email.trim().toLowerCase(),
+    email: normalizedEmail,
     password: hashedPassword,
     phone: phone || '+1 (555) 000-0000',
     avatar: avatar || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80',
@@ -33,49 +38,47 @@ export const registerUser = async ({ name, email, password, role = 'traveler', p
     location: location || 'United States'
   };
 
-  memoryStore.createUser(newUser);
+  const savedUser = unwrapDbResult(await createUser(newUser), 'creating user');
 
-  const token = generateToken(newUser);
-  const { password: _, ...safeUser } = newUser;
-
-  return { user: safeUser, token };
+  return { user: savedUser, token: generateToken(savedUser) };
 };
 
 export const loginUser = async ({ email, password }) => {
-  const user = memoryStore.findUserByEmail(email);
+  const user = unwrapDbResult(await getUserByEmail(email), 'looking up user');
   if (!user) {
     throw new AppError('Invalid email or password.', 401);
   }
 
-  const isPasswordValid = bcrypt.compareSync(password, user.password);
+  const isPasswordValid = await bcrypt.compare(password, user.password);
   if (!isPasswordValid) {
     throw new AppError('Invalid email or password.', 401);
   }
 
-  const token = generateToken(user);
   const { password: _, ...safeUser } = user;
 
-  return { user: safeUser, token };
+  return { user: safeUser, token: generateToken(user) };
 };
 
 export const getUserProfile = async (userId) => {
-  const user = memoryStore.findUserById(userId);
+  const user = unwrapDbResult(await getUserById(userId), 'looking up user profile');
   if (!user) {
     throw new AppError('User not found.', 404);
   }
-  const { password: _, ...safeUser } = user;
-  return safeUser;
+  return user;
 };
 
 export const updateUserProfile = async (userId, updateData) => {
-  const user = memoryStore.findUserById(userId);
+  const user = unwrapDbResult(await getUserById(userId), 'looking up user profile');
   if (!user) {
     throw new AppError('User not found.', 404);
   }
 
   // If email is changing, ensure it's not taken by another user
   if (updateData.email && updateData.email.toLowerCase() !== user.email.toLowerCase()) {
-    const emailExists = memoryStore.findUserByEmail(updateData.email);
+    const emailExists = unwrapDbResult(
+      await getUserByEmail(updateData.email),
+      'checking whether the email is already registered'
+    );
     if (emailExists) {
       throw new AppError('This email is already in use by another account.', 409);
     }
@@ -90,9 +93,15 @@ export const updateUserProfile = async (userId, updateData) => {
     ...(updateData.avatar && { avatar: updateData.avatar })
   };
 
-  const updatedUser = memoryStore.updateUser(userId, sanitizedUpdates);
-  const { password: _, ...safeUser } = updatedUser;
-  return safeUser;
+  const updatedUser = unwrapDbResult(
+    await updateUser(userId, sanitizedUpdates),
+    'updating user profile'
+  );
+  if (!updatedUser) {
+    throw new AppError('User not found.', 404);
+  }
+
+  return updatedUser;
 };
 
 export default {
