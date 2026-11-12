@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, Trash2, ArrowRight } from 'lucide-react';
 import { useWishlist } from '../context/WishlistContext';
@@ -7,11 +7,26 @@ import { PropertyCard } from '../components/PropertyCard';
 import { PropertyGridSkeleton } from '../components/Loader';
 
 export const Wishlist = () => {
-  const { wishlist, wishlistCount, clearWishlist } = useWishlist();
+  const {
+    wishlist,
+    wishlistCount,
+    clearWishlist,
+    wishlistLoading,
+    wishlistError
+  } = useWishlist();
   const { listings, loading } = useListings();
+  const [actionError, setActionError] = useState('');
 
   // Filter listings by wishlist IDs
   const savedProperties = listings.filter(l => wishlist.includes(l.id));
+  const handleClearWishlist = async () => {
+    setActionError('');
+    try {
+      await clearWishlist();
+    } catch (error) {
+      setActionError(error.message || 'Unable to clear wishlist.');
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
@@ -29,7 +44,8 @@ export const Wishlist = () => {
 
         {wishlistCount > 0 && (
           <button
-            onClick={clearWishlist}
+            onClick={handleClearWishlist}
+            disabled={wishlistLoading}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3.5 py-2 rounded-xl transition"
           >
             <Trash2 size={14} />
@@ -38,7 +54,13 @@ export const Wishlist = () => {
         )}
       </div>
 
-      {loading ? (
+      {(wishlistError || actionError) && (
+        <p role="alert" className="mb-5 text-sm text-rose-700">
+          {actionError || wishlistError}
+        </p>
+      )}
+
+      {loading || wishlistLoading ? (
         <PropertyGridSkeleton count={4} />
       ) : savedProperties.length === 0 ? (
         <div className="py-20 text-center max-w-md mx-auto px-4">
@@ -69,4 +91,3 @@ export const Wishlist = () => {
 };
 
 export default Wishlist;
-

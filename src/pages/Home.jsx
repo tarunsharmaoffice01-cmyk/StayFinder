@@ -1,19 +1,36 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Sparkles, MapPin, Shield, HeartHandshake, Compass, ArrowRight } from 'lucide-react';
 import { SearchBar } from '../components/SearchBar';
 import { CategoryBar } from '../components/CategoryBar';
 import { PropertyGrid } from '../components/PropertyGrid';
 import { useListings } from '../hooks/useListings';
-import { POPULAR_DESTINATIONS } from '../data/mockListings';
+import { fetchDestinations } from '../services/listingService';
 
 export const Home = () => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [destinations, setDestinations] = useState([]);
+  const [destinationsError, setDestinationsError] = useState('');
 
-  const { listings, loading } = useListings({
+  const { listings, loading, error } = useListings({
     category: selectedCategory
   });
+
+  useEffect(() => {
+    let active = true;
+    fetchDestinations()
+      .then((result) => {
+        if (active) setDestinations(result.data || []);
+      })
+      .catch((requestError) => {
+        if (active) setDestinationsError(requestError.message || 'Unable to load destinations.');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const featuredListings = listings.filter(l => l.rating >= 4.95).slice(0, 4);
 
@@ -69,6 +86,7 @@ export const Home = () => {
           <PropertyGrid
             listings={listings}
             loading={loading}
+            error={error}
             onResetFilters={() => setSelectedCategory('all')}
           />
         </section>
@@ -84,8 +102,11 @@ export const Home = () => {
             </p>
           </div>
 
+          {destinationsError && (
+            <p role="alert" className="mb-4 text-sm text-rose-700">{destinationsError}</p>
+          )}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {POPULAR_DESTINATIONS.map((dest) => (
+            {destinations.map((dest) => (
               <button
                 key={dest.name}
                 onClick={() => navigate(`/explore?destination=${encodeURIComponent(dest.name)}`)}
@@ -196,4 +217,3 @@ export const Home = () => {
 };
 
 export default Home;
-

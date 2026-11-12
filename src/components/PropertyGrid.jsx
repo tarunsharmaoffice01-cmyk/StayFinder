@@ -3,9 +3,18 @@ import { PropertyCard } from './PropertyCard';
 import { PropertyGridSkeleton } from './Loader';
 import { SearchX, RotateCcw } from 'lucide-react';
 
-export const PropertyGrid = ({ listings = [], loading = false, onResetFilters }) => {
+export const PropertyGrid = ({ listings = [], loading = false, error, onResetFilters }) => {
   if (loading) {
     return <PropertyGridSkeleton count={8} />;
+  }
+
+  if (error) {
+    return (
+      <div role="alert" className="py-12 px-4 text-center rounded-2xl border border-rose-200 bg-rose-50 text-rose-700">
+        <h3 className="font-bold">Unable to load properties</h3>
+        <p className="mt-1 text-sm">{error}</p>
+      </div>
+    );
   }
 
   if (listings.length === 0) {
@@ -41,4 +50,3 @@ export const PropertyGrid = ({ listings = [], loading = false, onResetFilters })
 };
 
 export default PropertyGrid;
-

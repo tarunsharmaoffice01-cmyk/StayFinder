@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   User,
@@ -19,12 +19,15 @@ import { useWishlist } from '../context/WishlistContext';
 import { useBooking } from '../context/BookingContext';
 
 export const Profile = () => {
-  const { user, isAuthenticated, logout, updateProfile } = useAuth();
+  const { user, isAuthenticated, authLoading, authError, logout, updateProfile } = useAuth();
   const { wishlistCount } = useWishlist();
   const { bookingsCount } = useBooking();
   const navigate = useNavigate();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -32,11 +35,26 @@ export const Profile = () => {
     location: user?.location || 'San Francisco, CA'
   });
 
+  useEffect(() => {
+    if (!user) return;
+    setFormData({
+      name: user.name || '',
+      email: user.email || '',
+      phone: user.phone || '',
+      location: user.location || ''
+    });
+  }, [user]);
+
+  if (authLoading) {
+    return <p className="py-20 text-center text-sm text-gray-500">Loading your profile…</p>;
+  }
+
   if (!isAuthenticated || !user) {
     return (
       <div className="max-w-md mx-auto py-20 px-4 text-center">
         <h2 className="text-xl font-bold text-gray-800 mb-2">You are logged out</h2>
         <p className="text-sm text-gray-500 mb-6">Please log in to view and edit your profile.</p>
+        {authError && <p role="alert" className="mb-4 text-sm text-rose-700">{authError}</p>}
         <Link
           to="/login"
           className="bg-rose-500 hover:bg-rose-600 text-white font-bold px-6 py-3 rounded-full text-xs shadow-md transition"
@@ -47,10 +65,20 @@ export const Profile = () => {
     );
   }
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    updateProfile(formData);
-    setIsEditing(false);
+    setProfileError('');
+    setProfileSaved(false);
+    setSavingProfile(true);
+    try {
+      await updateProfile(formData);
+      setIsEditing(false);
+      setProfileSaved(true);
+    } catch (error) {
+      setProfileError(error.message || 'Unable to update your profile.');
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   return (
@@ -106,6 +134,7 @@ export const Profile = () => {
       {isEditing && (
         <form onSubmit={handleSave} className="bg-white rounded-3xl p-6 border border-gray-200 shadow-xs mb-8 space-y-4">
           <h3 className="font-bold text-gray-900 text-sm">Update Personal Details</h3>
+          {profileError && <p role="alert" className="text-sm text-rose-700">{profileError}</p>}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-600 mb-1">Full Name</label>
@@ -148,13 +177,15 @@ export const Profile = () => {
           </div>
           <button
             type="submit"
+            disabled={savingProfile}
             className="inline-flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-xs transition"
           >
             <Check size={16} />
-            <span>Save Changes</span>
+            <span>{savingProfile ? 'Saving…' : 'Save Changes'}</span>
           </button>
         </form>
       )}
+      {profileSaved && <p role="status" className="mb-6 text-sm text-emerald-700">Profile updated.</p>}
 
       {/* Stats & Quick Links Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -195,11 +226,10 @@ export const Profile = () => {
         </Link>
       </div>
 
-      {/* Demo Student Notice */}
       <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex items-start gap-3 text-xs text-gray-600">
         <ShieldCheck size={20} className="text-rose-500 flex-shrink-0 mt-0.5" />
         <div>
-          <span className="font-bold text-gray-900">Student Group Architecture Note:</span> Your profile, reservations, and wishlist reside in your browser's persistent state. Refreshing or returning to the site will maintain your data.
+          <span className="font-bold text-gray-900">Account data:</span> Your profile, reservations, and wishlist are managed by the StayFinder backend.
         </div>
       </div>
     </div>
@@ -207,4 +237,3 @@ export const Profile = () => {
 };
 
 export default Profile;
-

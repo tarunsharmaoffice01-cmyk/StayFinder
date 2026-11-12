@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Mail, Lock, ShieldAlert, Sparkles } from 'lucide-react';
+import { User, Mail, Lock, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Signup = () => {
   const navigate = useNavigate();
-  const { signup } = useAuth();
+  const { signup, authError } = useAuth();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('Traveler');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -27,8 +28,20 @@ export const Signup = () => {
       return;
     }
 
-    signup({ name, email, role });
-    navigate('/');
+    setIsSubmitting(true);
+    try {
+      await signup({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        role: role === 'Host & Traveler' ? 'host' : 'traveler'
+      });
+      navigate('/');
+    } catch (err) {
+      setError(err.message || 'Unable to create your account.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -46,17 +59,10 @@ export const Signup = () => {
           </p>
         </div>
 
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-5 flex items-start gap-2.5 text-xs text-amber-800">
-          <ShieldAlert size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
-          <p>
-            <strong>Demo Mode:</strong> Account data is saved to your browser's local state. No real verification email is dispatched.
-          </p>
-        </div>
-
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
+          {(error || authError) && (
             <div className="text-xs text-rose-600 font-medium bg-rose-50 p-2.5 rounded-xl border border-rose-100">
-              {error}
+              {error || authError}
             </div>
           )}
 
@@ -127,9 +133,10 @@ export const Signup = () => {
 
           <button
             type="submit"
+            disabled={isSubmitting}
             className="w-full mt-2 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3.5 rounded-xl shadow-md transition text-xs uppercase tracking-wider"
           >
-            Create Free Account
+            {isSubmitting ? 'Creating Account…' : 'Create Free Account'}
           </button>
         </form>
 
@@ -145,4 +152,3 @@ export const Signup = () => {
 };
 
 export default Signup;
-

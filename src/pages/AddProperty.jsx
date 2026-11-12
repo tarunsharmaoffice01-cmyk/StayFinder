@@ -105,8 +105,8 @@ export const AddProperty = () => {
           'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&auto=format&fit=crop&q=80',
           'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&auto=format&fit=crop&q=80'
         ],
-        hostName: user?.name || 'Student Host',
-        hostImage: user?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
+        hostName: user.name,
+        hostImage: user.avatar,
         hostDuration: 'Joined 2026',
         hostResponseRate: '100%'
       });
@@ -436,4 +436,3 @@ export const AddProperty = () => {
 };
 
 export default AddProperty;
-

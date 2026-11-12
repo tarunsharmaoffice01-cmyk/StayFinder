@@ -29,8 +29,7 @@ export const createListing = asyncHandler(async (req, res) => {
 });
 
 export const getUserListings = asyncHandler(async (req, res) => {
-  const userId = req.user ? req.user.id : 'usr-student-01';
-  const listings = await listingService.getUserListings(userId);
+  const listings = await listingService.getUserListings(req.user.id);
   res.status(200).json({
     success: true,
     count: listings.length,
@@ -39,9 +38,11 @@ export const getUserListings = asyncHandler(async (req, res) => {
 });
 
 export const deleteUserListing = asyncHandler(async (req, res) => {
-  const userId = req.user ? req.user.id : 'usr-student-01';
-  const userRole = req.user ? req.user.role : 'host';
-  const result = await listingService.deleteUserListing(req.params.id, userId, userRole);
+  const result = await listingService.deleteUserListing(
+    req.params.id,
+    req.user.id,
+    req.user.role
+  );
   res.status(200).json(result);
 });
 

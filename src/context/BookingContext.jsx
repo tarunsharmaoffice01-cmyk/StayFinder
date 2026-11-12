@@ -1,80 +1,61 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { apiClient } from '../services/api';
+import { useAuth } from './AuthContext';
 
 const BookingContext = createContext();
 
-const BOOKINGS_STORAGE_KEY = 'stayfinder_bookings_v1';
-
-const INITIAL_DEMO_BOOKINGS = [
-  {
-    id: 'SF-2026-8941',
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-    propertyId: 'sf-101',
-    propertyTitle: 'The Glass Alpine Chalet with Matterhorn Views',
-    propertyLocation: 'Zermatt, Valais, Switzerland',
-    propertyImage: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=600&auto=format&fit=crop&q=80',
-    propertyType: 'Chalet',
-    checkIn: '2026-12-20',
-    checkOut: '2026-12-24',
-    nights: 4,
-    guests: 4,
-    pricePerNight: 380,
-    subtotal: 1520,
-    cleaningFee: 75,
-    serviceFee: 182,
-    occupancyTaxes: 122,
-    total: 1899,
-    status: 'Confirmed',
-    guestName: 'Alex Rivera',
-    guestEmail: 'alex.rivera@stayfinder.edu',
-    hostName: 'Beat & Marianne'
-  }
-];
-
 export const BookingProvider = ({ children }) => {
-  const [bookings, setBookings] = useState(() => {
-    try {
-      const saved = localStorage.getItem(BOOKINGS_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : INITIAL_DEMO_BOOKINGS;
-    } catch (e) {
-      console.error('Failed to parse bookings from localStorage', e);
-      return INITIAL_DEMO_BOOKINGS;
+  const { user, authLoading } = useAuth();
+  const [bookings, setBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [bookingsError, setBookingsError] = useState('');
+
+  const loadBookings = useCallback(async () => {
+    if (!user) {
+      setBookings([]);
+      setBookingsError('');
+      return;
     }
-  });
+
+    setBookingsLoading(true);
+    setBookingsError('');
+    try {
+      const result = await apiClient.get('/bookings');
+      setBookings(result.data);
+    } catch (error) {
+      setBookingsError(error.message || 'Unable to load bookings.');
+    } finally {
+      setBookingsLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(BOOKINGS_STORAGE_KEY, JSON.stringify(bookings));
-    } catch (e) {
-      console.error('Failed to save bookings', e);
-    }
-  }, [bookings]);
+    if (!authLoading) loadBookings();
+  }, [authLoading, loadBookings]);
 
-  /**
-   * Generates a new confirmed booking record
-   */
-  const createBooking = useCallback((bookingDetails) => {
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const newBooking = {
-      id: `SF-2026-${randomSuffix}`,
-      createdAt: new Date().toISOString(),
-      status: 'Confirmed',
-      ...bookingDetails
-    };
-
-    setBookings(prev => [newBooking, ...prev]);
-    return newBooking;
+  const createBooking = useCallback(async (bookingDetails) => {
+    const result = await apiClient.post('/bookings', bookingDetails);
+    setBookings((previous) => [result.data, ...previous]);
+    return result.data;
   }, []);
 
-  /**
-   * Cancels a booking
-   */
-  const cancelBooking = useCallback((bookingId) => {
-    setBookings(prev => prev.filter(b => b.id !== bookingId));
+  const cancelBooking = useCallback(async (bookingId) => {
+    const result = await apiClient.patch(
+      `/bookings/${encodeURIComponent(bookingId)}/cancel`,
+      {}
+    );
+    setBookings((previous) =>
+      previous.map((booking) => booking.id === bookingId ? result.data : booking)
+    );
+    return result.data;
   }, []);
 
   const value = {
     bookings,
-    bookingsCount: bookings.length,
+    bookingsCount: bookings.filter((booking) => booking.status !== 'Cancelled').length,
+    bookingsLoading,
+    bookingsError,
+    refreshBookings: loadBookings,
     createBooking,
     cancelBooking
   };
@@ -91,4 +72,3 @@ export const useBooking = () => {
 };
 
 export default BookingContext;
-

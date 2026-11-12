@@ -52,7 +52,7 @@ export const Explore = () => {
     setDestinationInput(dest);
   }, [searchParams]);
 
-  const { listings, loading } = useListings(filters);
+  const { listings, loading, error } = useListings(filters);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -257,6 +257,7 @@ export const Explore = () => {
       <PropertyGrid
         listings={listings}
         loading={loading}
+        error={error}
         onResetFilters={handleResetAll}
       />
 
@@ -273,4 +274,3 @@ export const Explore = () => {
 };
 
 export default Explore;
-

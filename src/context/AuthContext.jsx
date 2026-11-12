@@ -1,87 +1,81 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { apiClient, getAuthToken, setAuthToken } from '../services/api';
 
 const AuthContext = createContext();
 
-const AUTH_STORAGE_KEY = 'stayfinder_demo_user_v1';
-
-const DEFAULT_DEMO_USER = {
-  id: 'usr-student-01',
-  name: 'Alex Rivera',
-  email: 'alex.rivera@stayfinder.edu',
-  phone: '+1 (555) 489-2041',
-  avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
-  role: 'Traveler & Host',
-  memberSince: 'October 2024',
-  location: 'San Francisco, CA'
-};
-
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Failed to parse user from localStorage', e);
-    }
-    return DEFAULT_DEMO_USER;
-  });
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState('');
 
   useEffect(() => {
-    try {
-      if (user) {
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-      } else {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
-      }
-    } catch (e) {
-      console.error('Failed to save user to localStorage', e);
+    let active = true;
+    const token = getAuthToken();
+
+    if (!token) {
+      setAuthLoading(false);
+      return () => {
+        active = false;
+      };
     }
-  }, [user]);
 
-  const login = useCallback((credentials) => {
-    const loggedUser = {
-      id: user?.id || `usr-${Date.now()}`,
-      name: credentials.name || credentials.email?.split('@')[0] || 'Demo Traveler',
-      email: credentials.email || 'traveler@stayfinder.edu',
-      phone: credentials.phone || '+1 (555) 019-2834',
-      avatar: user?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
-      role: 'Traveler & Host',
-      memberSince: 'November 2026',
-      location: 'New York, NY'
-    };
-    setUser(loggedUser);
-    return loggedUser;
-  }, [user]);
+    apiClient.get('/auth/me')
+      .then((result) => {
+        if (active) setUser(result.user);
+      })
+      .catch((error) => {
+        if (active) {
+          if (error.status === 401) {
+            setAuthToken(null);
+            setUser(null);
+          } else {
+            setAuthError(error.message || 'Unable to verify your session.');
+          }
+        }
+      })
+      .finally(() => {
+        if (active) setAuthLoading(false);
+      });
 
-  const signup = useCallback((data) => {
-    const newUser = {
-      id: `usr-${Date.now()}`,
-      name: data.name || 'New Member',
-      email: data.email,
-      phone: data.phone || '+1 (555) 000-0000',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80',
-      role: data.role || 'Traveler',
-      memberSince: 'November 2026',
-      location: data.location || 'United States'
+    return () => {
+      active = false;
     };
-    setUser(newUser);
-    return newUser;
+  }, []);
+
+  const login = useCallback(async (credentials) => {
+    setAuthError('');
+    const result = await apiClient.post('/auth/login', credentials);
+    setAuthToken(result.token);
+    setUser(result.user);
+    return result.user;
+  }, []);
+
+  const signup = useCallback(async (data) => {
+    setAuthError('');
+    const result = await apiClient.post('/auth/signup', data);
+    setAuthToken(result.token);
+    setUser(result.user);
+    return result.user;
   }, []);
 
   const logout = useCallback(() => {
+    setAuthToken(null);
     setUser(null);
+    setAuthError('');
   }, []);
 
-  const updateProfile = useCallback((profileData) => {
-    setUser(prev => ({
-      ...prev,
-      ...profileData
-    }));
+  const updateProfile = useCallback(async (profileData) => {
+    setAuthError('');
+    const result = await apiClient.put('/auth/profile', profileData);
+    setUser(result.user);
+    return result.user;
   }, []);
 
   const value = {
     user,
     isAuthenticated: Boolean(user),
+    authLoading,
+    authError,
     login,
     signup,
     logout,
@@ -100,4 +94,3 @@ export const useAuth = () => {
 };
 
 export default AuthContext;
-

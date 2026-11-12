@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Star,
   Award,
@@ -28,6 +28,7 @@ import { BookingCard } from '../components/BookingCard';
 import { ReviewSection } from '../components/ReviewSection';
 import { PropertyDetailSkeleton } from '../components/Loader';
 import { useWishlist } from '../context/WishlistContext';
+import { useAuth } from '../context/AuthContext';
 
 export const PropertyDetails = () => {
   const { id } = useParams();
@@ -36,8 +37,11 @@ export const PropertyDetails = () => {
   const [error, setError] = useState(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
+  const [wishlistError, setWishlistError] = useState('');
 
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -85,6 +89,19 @@ export const PropertyDetails = () => {
   }
 
   const isFavorited = isInWishlist(property.id);
+  const handleWishlistClick = async () => {
+    setWishlistError('');
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      await toggleWishlist(property.id);
+    } catch (requestError) {
+      setWishlistError(requestError.message || 'Unable to update wishlist.');
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
@@ -139,7 +156,7 @@ export const PropertyDetails = () => {
           </button>
 
           <button
-            onClick={() => toggleWishlist(property.id)}
+            onClick={handleWishlistClick}
             className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-semibold transition ${
               isFavorited
                 ? 'border-rose-200 bg-rose-50 text-rose-600'
@@ -149,6 +166,7 @@ export const PropertyDetails = () => {
             <Heart size={14} className={isFavorited ? 'fill-rose-500 text-rose-500' : ''} />
             <span>{isFavorited ? 'Saved' : 'Save'}</span>
           </button>
+          {wishlistError && <p role="alert" className="text-xs text-rose-700">{wishlistError}</p>}
         </div>
       </div>
 
@@ -282,11 +300,14 @@ export const PropertyDetails = () => {
 
       {/* Reviews Section */}
       <div className="mt-12">
-        <ReviewSection rating={property.rating} reviewCount={property.reviews} />
+        <ReviewSection
+          propertyId={property.id}
+          rating={property.rating}
+          reviewCount={property.reviews}
+        />
       </div>
     </div>
   );
 };
 
 export default PropertyDetails;
-

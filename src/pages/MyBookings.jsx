@@ -15,12 +15,24 @@ import { formatCurrency } from '../utils/priceCalculator';
 import { formatDate } from '../utils/dateUtils';
 
 export const MyBookings = () => {
-  const { bookings, cancelBooking, bookingsCount } = useBooking();
+  const {
+    bookings,
+    cancelBooking,
+    bookingsCount,
+    bookingsLoading,
+    bookingsError
+  } = useBooking();
   const [cancellingId, setCancellingId] = useState(null);
+  const [actionError, setActionError] = useState('');
 
-  const handleConfirmCancel = (id) => {
-    cancelBooking(id);
-    setCancellingId(null);
+  const handleConfirmCancel = async (id) => {
+    setActionError('');
+    try {
+      await cancelBooking(id);
+      setCancellingId(null);
+    } catch (error) {
+      setActionError(error.message || 'Unable to cancel booking.');
+    }
   };
 
   return (
@@ -46,7 +58,15 @@ export const MyBookings = () => {
         </Link>
       </div>
 
-      {bookingsCount === 0 ? (
+      {(bookingsError || actionError) && (
+        <div role="alert" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+          {actionError || bookingsError}
+        </div>
+      )}
+
+      {bookingsLoading ? (
+        <p className="py-16 text-center text-sm text-gray-500">Loading your bookings…</p>
+      ) : bookings.length === 0 ? (
         <div className="py-20 text-center max-w-md mx-auto px-4">
           <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <Calendar size={36} className="stroke-[1.5]" />
@@ -130,7 +150,7 @@ export const MyBookings = () => {
                   </div>
                 </div>
 
-                {cancellingId === booking.id ? (
+                {booking.status !== 'Cancelled' && cancellingId === booking.id ? (
                   <div className="flex items-center gap-2 mt-3">
                     <button
                       onClick={() => handleConfirmCancel(booking.id)}
@@ -145,7 +165,7 @@ export const MyBookings = () => {
                       Back
                     </button>
                   </div>
-                ) : (
+                ) : booking.status !== 'Cancelled' ? (
                   <button
                     onClick={() => setCancellingId(booking.id)}
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 p-2 rounded-xl transition md:mt-3"
@@ -153,7 +173,7 @@ export const MyBookings = () => {
                     <Trash2 size={14} />
                     <span>Cancel Stay</span>
                   </button>
-                )}
+                ) : null}
               </div>
             </div>
           ))}
@@ -164,4 +184,3 @@ export const MyBookings = () => {
 };
 
 export default MyBookings;
-
