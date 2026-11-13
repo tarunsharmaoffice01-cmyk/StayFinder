@@ -35,10 +35,10 @@ export const SearchBar = ({ initialDestination = '', initialGuests = 1, isHero =
     <div className={`relative w-full ${isHero ? 'max-w-4xl mx-auto' : 'max-w-2xl'}`}>
       <form
         onSubmit={handleSearch}
-        className="bg-white rounded-full border border-gray-200 shadow-subtle hover:shadow-card transition-shadow duration-300 p-1.5 md:p-2 flex flex-col md:flex-row items-stretch md:items-center relative"
+        className="bg-white rounded-3xl md:rounded-full border border-gray-200 shadow-subtle hover:shadow-card transition-shadow duration-300 p-2 md:p-2 grid grid-cols-2 gap-1.5 md:flex md:flex-row md:items-center md:gap-0 relative"
       >
         {/* Segment 1: Where */}
-        <div className="relative flex-1 px-4 py-2 hover:bg-gray-50 rounded-full cursor-pointer transition">
+        <div className="relative col-span-2 md:col-auto md:flex-1 px-4 py-2 hover:bg-gray-50 rounded-2xl md:rounded-full cursor-pointer transition">
           <label className="block text-[11px] font-extrabold text-gray-800 tracking-wider uppercase">
             Where
           </label>
@@ -65,7 +65,7 @@ export const SearchBar = ({ initialDestination = '', initialGuests = 1, isHero =
           {/* Destination Quick Suggestions Dropdown */}
           {isDestSuggestionsOpen && (
             <div
-              className="absolute top-full left-0 mt-3 w-72 bg-white rounded-3xl shadow-floating border border-gray-100 p-4 z-50 animate-fade-in"
+              className="absolute top-full left-0 right-0 md:right-auto mt-2 md:mt-3 w-auto md:w-72 max-w-[calc(100vw-2rem)] bg-white rounded-2xl md:rounded-3xl shadow-floating border border-gray-100 p-4 z-50 animate-fade-in"
               onMouseLeave={() => setIsDestSuggestionsOpen(false)}
             >
               <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
@@ -94,7 +94,7 @@ export const SearchBar = ({ initialDestination = '', initialGuests = 1, isHero =
         <div className="hidden md:block w-[1px] h-8 bg-gray-200" />
 
         {/* Segment 2: Check in */}
-        <div className="flex-1 px-4 py-2 hover:bg-gray-50 rounded-full transition cursor-pointer">
+        <div className="col-span-1 md:col-auto md:flex-1 min-w-0 px-3 md:px-4 py-2 hover:bg-gray-50 rounded-2xl md:rounded-full transition cursor-pointer">
           <label className="block text-[11px] font-extrabold text-gray-800 tracking-wider uppercase">
             Check in
           </label>
@@ -103,14 +103,14 @@ export const SearchBar = ({ initialDestination = '', initialGuests = 1, isHero =
             min={getTodayString()}
             value={checkIn}
             onChange={(e) => setCheckIn(e.target.value)}
-            className="w-full text-xs md:text-sm font-medium text-gray-700 bg-transparent focus:outline-none cursor-pointer"
+            className="w-full min-w-0 text-xs md:text-sm font-medium text-gray-700 bg-transparent focus:outline-none cursor-pointer"
           />
         </div>
 
         <div className="hidden md:block w-[1px] h-8 bg-gray-200" />
 
         {/* Segment 3: Check out */}
-        <div className="flex-1 px-4 py-2 hover:bg-gray-50 rounded-full transition cursor-pointer">
+        <div className="col-span-1 md:col-auto md:flex-1 min-w-0 px-3 md:px-4 py-2 hover:bg-gray-50 rounded-2xl md:rounded-full transition cursor-pointer">
           <label className="block text-[11px] font-extrabold text-gray-800 tracking-wider uppercase">
             Check out
           </label>
@@ -119,14 +119,14 @@ export const SearchBar = ({ initialDestination = '', initialGuests = 1, isHero =
             min={checkIn || getTodayString()}
             value={checkOut}
             onChange={(e) => setCheckOut(e.target.value)}
-            className="w-full text-xs md:text-sm font-medium text-gray-700 bg-transparent focus:outline-none cursor-pointer"
+            className="w-full min-w-0 text-xs md:text-sm font-medium text-gray-700 bg-transparent focus:outline-none cursor-pointer"
           />
         </div>
 
         <div className="hidden md:block w-[1px] h-8 bg-gray-200" />
 
         {/* Segment 4: Who */}
-        <div className="relative flex-1 px-4 py-2 hover:bg-gray-50 rounded-full cursor-pointer transition">
+        <div className="relative col-span-1 md:col-auto md:flex-1 min-w-0 px-3 md:px-4 py-2 hover:bg-gray-50 rounded-2xl md:rounded-full cursor-pointer transition">
           <div onClick={() => setIsGuestPickerOpen(!isGuestPickerOpen)}>
             <label className="block text-[11px] font-extrabold text-gray-800 tracking-wider uppercase">
               Who
@@ -139,7 +139,7 @@ export const SearchBar = ({ initialDestination = '', initialGuests = 1, isHero =
           {/* Guests Popover */}
           {isGuestPickerOpen && (
             <div
-              className="absolute top-full right-0 mt-3 w-64 bg-white rounded-3xl shadow-floating border border-gray-100 p-5 z-50 animate-fade-in"
+              className="absolute top-full left-0 md:left-auto md:right-0 mt-2 md:mt-3 w-64 max-w-[calc(100vw-2.5rem)] bg-white rounded-2xl md:rounded-3xl shadow-floating border border-gray-100 p-5 z-50 animate-fade-in"
               onMouseLeave={() => setIsGuestPickerOpen(false)}
             >
               <div className="flex items-center justify-between">
@@ -171,13 +171,13 @@ export const SearchBar = ({ initialDestination = '', initialGuests = 1, isHero =
         </div>
 
         {/* Submit Button */}
-        <div className="p-1 md:pr-1">
+        <div className="col-span-1 md:col-auto p-0.5 md:p-1 md:pr-1 flex items-center">
           <button
             type="submit"
-            className="w-full md:w-auto bg-rose-500 hover:bg-rose-600 text-white font-bold px-5 py-3 md:py-3.5 rounded-full shadow-md flex items-center justify-center gap-2 transition active:scale-95"
+            className="w-full md:w-auto h-full min-h-[46px] md:min-h-0 bg-rose-500 hover:bg-rose-600 text-white font-bold px-4 md:px-5 py-2.5 md:py-3.5 rounded-2xl md:rounded-full shadow-md flex items-center justify-center gap-2 transition active:scale-95"
           >
             <Search size={17} className="stroke-[2.5]" />
-            <span className="md:hidden font-semibold text-sm">Search Stays</span>
+            <span className="md:hidden font-semibold text-xs sm:text-sm">Search</span>
           </button>
         </div>
       </form>
