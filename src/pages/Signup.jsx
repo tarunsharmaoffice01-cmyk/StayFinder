@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Mail, Lock, Sparkles } from 'lucide-react';
+import { User, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Signup = () => {
@@ -12,7 +13,7 @@ export const Signup = () => {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('Traveler');
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,8 +29,8 @@ export const Signup = () => {
       return;
     }
 
-    setIsSubmitting(true);
     try {
+      setLoading(true);
       await signup({
         name: name.trim(),
         email: email.trim(),
@@ -38,9 +39,9 @@ export const Signup = () => {
       });
       navigate('/');
     } catch (err) {
-      setError(err.message || 'Unable to create your account.');
+      setError(err.message || 'Signup failed. Please try again.');
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
@@ -70,14 +71,7 @@ export const Signup = () => {
             <label className="block text-xs font-bold text-gray-700 mb-1">Full Name</label>
             <div className="relative">
               <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Maya Chen"
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white"
-              />
+              <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Maya Chen" className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white" />
             </div>
           </div>
 
@@ -85,14 +79,7 @@ export const Signup = () => {
             <label className="block text-xs font-bold text-gray-700 mb-1">Email Address</label>
             <div className="relative">
               <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="maya@example.com"
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white"
-              />
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="maya@example.com" className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white" />
             </div>
           </div>
 
@@ -100,14 +87,7 @@ export const Signup = () => {
             <label className="block text-xs font-bold text-gray-700 mb-1">Password</label>
             <div className="relative">
               <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Create a password"
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white"
-              />
+              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Create a password" className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white" />
             </div>
           </div>
 
@@ -115,28 +95,15 @@ export const Signup = () => {
             <label className="block text-xs font-bold text-gray-700 mb-1">Primary Interest</label>
             <div className="grid grid-cols-2 gap-2">
               {['Traveler', 'Host & Traveler'].map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRole(r)}
-                  className={`py-2 rounded-xl border text-xs font-bold transition text-center ${
-                    role === r
-                      ? 'border-rose-500 bg-rose-50 text-rose-600'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                  }`}
-                >
+                <button key={r} type="button" onClick={() => setRole(r)} className={`py-2 rounded-xl border text-xs font-bold transition text-center ${role === r ? 'border-rose-500 bg-rose-50 text-rose-600' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
                   {r}
                 </button>
               ))}
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full mt-2 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3.5 rounded-xl shadow-md transition text-xs uppercase tracking-wider"
-          >
-            {isSubmitting ? 'Creating Account…' : 'Create Free Account'}
+          <button type="submit" disabled={loading} className="w-full mt-2 bg-rose-500 hover:bg-rose-600 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl shadow-md transition text-xs uppercase tracking-wider">
+            {loading ? 'Creating Account...' : 'Create Free Account'}
           </button>
         </form>
 

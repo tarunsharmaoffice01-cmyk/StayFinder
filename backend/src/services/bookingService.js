@@ -1,116 +1,181 @@
-import {
-  createBooking as insertBooking,
-  getBookingById as selectBookingById,
-  getBookingsByUser,
-  getPropertyById,
-  updateBooking
-} from '../../db/index.js';
+
+import { supabase } from '../config/supabase.js';
 import { AppError } from '../utils/appError.js';
-import { unwrapDbResult } from '../utils/unwrapDbResult.js';
+
+const mapBooking = (b) => ({
+  id: b.id,
+  userId: b.user_id,
+  propertyId: b.property_id,
+  propertyTitle: b.property_title,
+  propertyLocation: b.property_location,
+  propertyImage: b.property_image,
+  propertyType: b.property_type,
+  checkIn: b.check_in,
+  checkOut: b.check_out,
+  nights: b.nights,
+  guests: b.guests,
+  pricePerNight: Number(b.price_per_night),
+  subtotal: Number(b.subtotal),
+  cleaningFee: Number(b.cleaning_fee),
+  serviceFee: Number(b.service_fee),
+  occupancyTaxes: Number(b.occupancy_taxes),
+  total: Number(b.total),
+  status: b.status,
+  guestName: b.guest_name,
+  guestEmail: b.guest_email,
+  hostName: b.host_name,
+  createdAt: b.created_at,
+  cancelledAt: b.cancelled_at
+});
 
 export const calculateNights = (checkIn, checkOut) => {
-  const start = new Date(checkIn);
-  const end = new Date(checkOut);
-  const diffTime = Math.abs(end - start);
-  const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return Math.max(1, nights);
+  const start = new Date(`${checkIn}T00:00:00Z`);
+  const end = new Date(`${checkOut}T00:00:00Z`);
+
+  if (!Number.isFinite(start.getTime()) ||
+      !Number.isFinite(end.getTime()) || end <= start) {
+    throw new AppError('Please provide valid check-in and check-out dates.', 400);
+  }
+
+  return Math.round((end - start) / 86400000);
 };
 
 export const createBooking = async (data, user) => {
-  const property = unwrapDbResult(
-    await getPropertyById(data.propertyId),
-    'loading property for booking'
-  );
-  if (!property) {
-    throw new AppError(`Property with id '${data.propertyId}' not found.`, 404);
-  }
+  if (!user?.id) throw new AppError('Please login to make a booking.', 401);
 
-  const requestedGuests = Number(data.guests || 1);
-  if (property.guests && requestedGuests > property.guests) {
-    throw new AppError(`Maximum guest capacity for this property is ${property.guests}.`, 400);
-  }
+  const { data: property, error: propertyError } = await supabase
+    .from('properties')
+    .select('*')
+    .eq('id', data.propertyId)
+    .maybeSingle();
+
+  if (propertyError) throw new AppError('Unable to load property.', 500);
+  if (!property) throw new AppError('Property not found.', 404);
 
   const nights = calculateNights(data.checkIn, data.checkOut);
-  const pricePerNight = property.price;
+  const guests = Number(data.guests || 1);
+
+  if (!Number.isInteger(guests) || guests < 1) {
+    throw new AppError('Please enter a valid number of guests.', 400);
+  }
+
+  if (property.guests && guests > Number(property.guests)) {
+    throw new AppError(`Maximum guest capacity is ${property.guests}.`, 400);
+  }
+
+  const pricePerNight = Number(property.price);
+  if (!Number.isFinite(pricePerNight) || pricePerNight < 0) {
+    throw new AppError('Invalid property price.', 400);
+  }
+
   const subtotal = pricePerNight * nights;
-  const cleaningFee = property.cleaningFee || 60;
+  const cleaningFee = Number(property.cleaning_fee || 0);
   const serviceFee = Math.round(subtotal * 0.12);
   const occupancyTaxes = Math.round(subtotal * 0.08);
   const total = subtotal + cleaningFee + serviceFee + occupancyTaxes;
+  const images = Array.isArray(property.images) ? property.images : [];
 
-  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
   const newBooking = {
-    id: `SF-2026-${randomSuffix}`,
-    createdAt: new Date().toISOString(),
-    status: 'Confirmed',
-    userId: user.id,
-    propertyId: property.id,
-    propertyTitle: property.title,
-    propertyLocation: property.location,
-    propertyImage: (property.images && property.images[0]) || property.imageUrl || '',
-    propertyType: property.propertyType,
-    checkIn: data.checkIn,
-    checkOut: data.checkOut,
+    id: `SF-${Date.now()}`,
+    user_id: user.id,
+    property_id: property.id,
+    property_title: property.title,
+    property_location: property.location,
+    property_image: images[0] || '',
+    property_type: property.property_type,
+    check_in: data.checkIn,
+    check_out: data.checkOut,
     nights,
-    guests: requestedGuests,
-    pricePerNight,
+    guests,
+    price_per_night: pricePerNight,
     subtotal,
-    cleaningFee,
-    serviceFee,
-    occupancyTaxes,
+    cleaning_fee: cleaningFee,
+    service_fee: serviceFee,
+    occupancy_taxes: occupancyTaxes,
     total,
-    guestName: data.guestName || user.name,
-    guestEmail: data.guestEmail || user.email,
-    hostName: property.hostName || 'StayFinder Host'
+    status: 'Confirmed',
+    guest_name: user.name,
+    guest_email: user.email,
+    host_name: property.host_name || 'StayFinder Host'
   };
 
-  return unwrapDbResult(await insertBooking(newBooking), 'creating booking');
+  const { data: booking, error } = await supabase
+    .from('bookings')
+    .insert(newBooking)
+    .select('*')
+    .single();
+
+  if (error) throw new AppError('Unable to create booking.', 500);
+  return mapBooking(booking);
 };
 
-export const getUserBookings = async (userId, userEmail) => {
-  return unwrapDbResult(
-    await getBookingsByUser(userId, userEmail),
-    'loading user bookings'
-  );
+export const getUserBookings = async (userId) => {
+  if (!userId) throw new AppError('Please login first.', 401);
+
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new AppError('Unable to load bookings.', 500);
+  return (data || []).map(mapBooking);
 };
 
 export const getBookingById = async (bookingId, userId, userRole) => {
-  const booking = unwrapDbResult(
-    await selectBookingById(bookingId),
-    'loading booking'
-  );
-  if (!booking) {
-    throw new AppError(`Booking with id '${bookingId}' not found.`, 404);
-  }
+  if (!userId) throw new AppError('Please login first.', 401);
 
-  const isOwner = !userId || booking.userId === userId || (userRole && userRole.toLowerCase() === 'admin');
-  if (!isOwner) {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', bookingId)
+    .maybeSingle();
+
+  if (error) throw new AppError('Unable to load booking.', 500);
+  if (!data) throw new AppError('Booking not found.', 404);
+
+  if (data.user_id !== userId && userRole?.toLowerCase() !== 'admin') {
     throw new AppError('You do not have permission to view this booking.', 403);
   }
 
-  return booking;
+  return mapBooking(data);
 };
 
 export const cancelBooking = async (bookingId, userId, userRole) => {
-  const booking = unwrapDbResult(
-    await selectBookingById(bookingId),
-    'loading booking'
-  );
-  if (!booking) {
-    throw new AppError(`Booking with id '${bookingId}' not found.`, 404);
-  }
+  if (!userId) throw new AppError('Please login first.', 401);
 
-  const isOwner = !userId || booking.userId === userId || (userRole && userRole.toLowerCase() === 'admin');
-  if (!isOwner) {
+  const { data: booking, error: findError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', bookingId)
+    .maybeSingle();
+
+  if (findError) throw new AppError('Unable to load booking.', 500);
+  if (!booking) throw new AppError('Booking not found.', 404);
+
+  if (booking.user_id !== userId && userRole?.toLowerCase() !== 'admin') {
     throw new AppError('You do not have permission to cancel this booking.', 403);
   }
 
-  const updated = unwrapDbResult(await updateBooking(bookingId, {
-    status: 'Cancelled',
-    cancelledAt: new Date().toISOString()
-  }), 'cancelling booking');
+  if (booking.status === 'Cancelled') {
+    throw new AppError('This booking is already cancelled.', 400);
+  }
 
-  return updated;
+  const now = new Date().toISOString();
+
+  const { data: updated, error } = await supabase
+    .from('bookings')
+    .update({
+      status: 'Cancelled',
+      cancelled_at: now,
+      updated_at: now
+    })
+    .eq('id', bookingId)
+    .select('*')
+    .single();
+
+  if (error) throw new AppError('Unable to cancel booking.', 500);
+  return mapBooking(updated);
 };
 
 export default {

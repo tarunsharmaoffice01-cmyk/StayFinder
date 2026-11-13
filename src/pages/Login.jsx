@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Mail, Lock, Sparkles } from 'lucide-react';
+import { Mail, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Login = () => {
@@ -8,50 +9,36 @@ export const Login = () => {
   const location = useLocation();
   const { login, authError } = useAuth();
 
-  const [email, setEmail] = useState('alex.rivera@stayfinder.edu');
-  const [password, setPassword] = useState('demo1234');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const redirectPath = location.state?.from || '/';
-
-  const handleLogin = async (credentials) => {
-    setError('');
-    setIsSubmitting(true);
-    try {
-      await login(credentials);
-      navigate(redirectPath, { replace: true });
-    } catch (err) {
-      setError(err.message || 'Unable to sign in.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!email || !password) {
+    if (!email.trim() || !password) {
       setError('Please fill in both email and password.');
       return;
     }
 
-    await handleLogin({ email, password });
-  };
-
-  const handleQuickDemoLogin = async () => {
-    setEmail('alex.rivera@stayfinder.edu');
-    setPassword('demo1234');
-    await handleLogin({
-      email: 'alex.rivera@stayfinder.edu',
-      password: 'demo1234'
-    });
+    try {
+      setError('');
+      setLoading(true);
+      await login({ email, password });
+      navigate(redirectPath, { replace: true });
+    } catch (err) {
+      setError(err.message || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
-      <div className="bg-white rounded-3xl border border-gray-200 shadow-card max-w-md w-full p-8 relative">
-        {/* Header */}
+      <div className="bg-white rounded-3xl border border-gray-200 shadow-card max-w-md w-full p-8">
         <div className="text-center mb-6">
           <div className="w-12 h-12 rounded-2xl bg-rose-500 text-white flex items-center justify-center font-black text-2xl mx-auto mb-3 shadow-md">
             S
@@ -64,27 +51,6 @@ export const Login = () => {
           </p>
         </div>
 
-        {/* Demo account shortcut */}
-        <button
-          type="button"
-          onClick={handleQuickDemoLogin}
-          disabled={isSubmitting}
-          className="w-full bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition transform active:scale-98 flex items-center justify-center gap-2 text-xs uppercase tracking-wider mb-5"
-        >
-          <Sparkles size={16} />
-          <span>{isSubmitting ? 'Signing in…' : 'Sign in as demo host'}</span>
-        </button>
-
-        <div className="relative my-5">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-3 text-gray-400 font-bold">Or sign in with email</span>
-          </div>
-        </div>
-
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {(error || authError) && (
             <div className="text-xs text-rose-600 font-medium bg-rose-50 p-2.5 rounded-xl border border-rose-100">
@@ -93,7 +59,9 @@ export const Login = () => {
           )}
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">Email Address</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              Email Address
+            </label>
             <div className="relative">
               <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
@@ -108,7 +76,9 @@ export const Login = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">Password</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              Password
+            </label>
             <div className="relative">
               <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
@@ -116,7 +86,7 @@ export const Login = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Enter your password"
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white"
               />
             </div>
@@ -124,10 +94,10 @@ export const Login = () => {
 
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-gray-900 hover:bg-black text-white font-bold py-3.5 rounded-xl shadow-sm transition text-xs uppercase tracking-wider"
+            disabled={loading}
+            className="w-full bg-gray-900 hover:bg-black disabled:opacity-60 text-white font-bold py-3.5 rounded-xl shadow-sm transition text-xs uppercase tracking-wider"
           >
-            {isSubmitting ? 'Signing In…' : 'Sign In'}
+            {loading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
 

@@ -6,6 +6,7 @@ import { validateCreateBooking } from '../middleware/validateMiddleware.js';
 const router = Router();
 
 router.use(protect);
+
 router.post('/', validateCreateBooking, bookingController.createBooking);
 router.get('/', bookingController.getUserBookings);
 router.get('/:id', bookingController.getBookingById);
