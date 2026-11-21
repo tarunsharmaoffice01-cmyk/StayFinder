@@ -4,7 +4,7 @@ A complete, responsive vacation rental booking application built with **React 18
 
 ---
 
-## 🌟 Key Features
+## 🌟 Key Features this has:
 
 ### 1. 🏡 Modern Airbnb-Inspired Interface
 - **Clean & Minimal Aesthetic:** Crisp white backgrounds, subtle neutral gray sections, and warm coral/rose accent colors (`#FF385C`).
